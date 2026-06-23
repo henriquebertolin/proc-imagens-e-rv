@@ -13,8 +13,8 @@ from datetime import datetime
 MODEL_PATH = "model/best.pt"
 RESULTS_DIR = "results"
 FILTERS_DIR = os.path.join("runs", "detect", RESULTS_DIR, "filtros_imagem")
-VIDEOS_DIR = os.path.join(RESULTS_DIR, "webcam_recordings")
-REPORTS_DIR = os.path.join(RESULTS_DIR, "relatorios")
+VIDEOS_DIR = os.path.join("runs", "detect", RESULTS_DIR, "webcam_recordings")
+REPORTS_DIR = os.path.join("runs", "detect", RESULTS_DIR, "relatorios")
 
 os.makedirs(RESULTS_DIR, exist_ok=True)
 os.makedirs(FILTERS_DIR, exist_ok=True)
@@ -318,7 +318,7 @@ def process_image():
     resumo = calcular_conformidade(results)
     mostrar_resultado_imagem(annotated, resumo)
 
-    cv2.imwrite(os.path.join(RESULTS_DIR, "image_prediction.jpg"), annotated)
+    cv2.imwrite(os.path.join("runs", "detect", RESULTS_DIR, "image_prediction", "image_prediction.jpg"), annotated)
 
     messagebox.showinfo(
         "Processamento concluído",
