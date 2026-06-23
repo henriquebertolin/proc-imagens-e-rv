@@ -87,8 +87,8 @@ O modelo foi treinado com o Construction-PPE Dataset, um conjunto de dados espec
 ### 1. Clonar o Repositório
 
 ```bash
-git clone https://github.com/seu-usuario/safevision.git
-cd safevision
+git clone https://github.com/henriquebertolin/proc-imagens-e-rv.git
+cd proc-imagens-e-rv
 ```
 
 ### 2. Criar Ambiente Virtual (Recomendado)
@@ -253,7 +253,7 @@ A janela principal oferece 6 opções:
 ## 📂 Estrutura do Projeto
 
 ```
-safevision/
+proc-imagens-e-rv/
 ├── app.py                          # Aplicação principal
 ├── requirements.txt                # Dependências Python
 ├── README.md                       # Este arquivo
@@ -485,9 +485,9 @@ Prof. Dr. Rafael Rieder
 Universidade de Passo Fundo (UPF) - 2026/1
 
 **Equipe:**
-- Alan (implementação de WebCam, painel, gravação e integração)
-- Colega 1 (modelo de treinamento)
-- Colega 2 (funcionalidades adicionais)
+- **Henrique Bertolin** - Treinamento do modelo YOLOv8
+- **Gregory Fortunato** - Interface, webcam, painel, gravação e integração
+- **Guilherme Reginato** - Funcionalidades adicionais e otimização
 
 ---
 
@@ -503,8 +503,7 @@ Universidade de Passo Fundo (UPF) - 2026/1
 
 Para dúvidas ou sugestões sobre o projeto:
 
-- 📧 Email: seu-email@exemplo.com
-- 🐙 GitHub: https://github.com/seu-usuario/safevision
+- 🐙 GitHub: https://github.com/henriquebertolin/proc-imagens-e-rv
 - 👥 Orientador: Prof. Dr. Rafael Rieder (rieder@upf.br)
 
 ---
