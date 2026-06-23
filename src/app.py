@@ -480,8 +480,7 @@ def process_webcam(gravar=False):
     TITLE_COLOR = (200, 200, 215)
     ACCENT_COLOR = (66, 165, 245)
     FONT = cv2.FONT_HERSHEY_SIMPLEX
-    FONT_MONO = cv2.FONT_MONOSPACE
-
+    FONT_MONO = cv2.FONT_HERSHEY_DUPLEX
     cap = cv2.VideoCapture(0)
 
     if not cap.isOpened():
