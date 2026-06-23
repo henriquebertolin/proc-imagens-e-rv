@@ -252,6 +252,32 @@ def open_image_filters_window():
     tk.Button(win, text="Aplicar filtro", width=20, command=aplicar).pack(pady=10)
 
 
+def mostrar_resultado_imagem(img, resumo):
+    win = tk.Toplevel(root)
+    win.title("Resultado da Detecção")
+    win.geometry("720x720")
+    win.resizable(False, False)
+
+    tk.Label(
+        win,
+        text="Resultado da Detecção de EPIs",
+        font=("Arial", 15, "bold")
+    ).pack(pady=10)
+
+    foto = cv2_para_tk(img, tamanho_max=500)
+
+    label_img = tk.Label(win, image=foto)
+    label_img.image = foto
+    label_img.pack(pady=10)
+
+    label_resumo = tk.Label(
+        win,
+        text=resumo,
+        font=("Arial", 10),
+        justify="left"
+    )
+    label_resumo.pack(pady=10)
+
 def process_image():
     file_path = filedialog.askopenfilename(
         title="Selecione uma imagem",
@@ -270,15 +296,50 @@ def process_image():
         exist_ok=True
     )
 
+    annotated_image = results[0].plot()
     resumo = calcular_conformidade(results)
+
+    mostrar_resultado_imagem(annotated_image, resumo)
 
     messagebox.showinfo(
         "Processamento concluído",
-        f"Imagem processada com sucesso.\n"
-        f"Resultado salvo em runs/detect/results/image_prediction.\n\n"
-        f"{resumo}"
+        "Imagem processada com sucesso.\n"
+        "Resultado salvo em runs/detect/results/image_prediction."
     )
 
+
+def mostrar_resultado_video(resumo, caminho_video):
+    win = tk.Toplevel(root)
+    win.title("Resultado do Vídeo")
+    win.geometry("650x650")
+    win.resizable(False, False)
+
+    tk.Label(
+        win,
+        text="Resultado da Detecção no Vídeo",
+        font=("Arial", 15, "bold")
+    ).pack(pady=10)
+
+    tk.Label(
+        win,
+        text=resumo,
+        font=("Arial", 10),
+        justify="left"
+    ).pack(pady=10)
+
+    tk.Label(
+        win,
+        text=f"Vídeo salvo em:\n{caminho_video}",
+        font=("Arial", 9),
+        wraplength=480
+    ).pack(pady=10)
+
+    tk.Button(
+        win,
+        text="Abrir vídeo processado",
+        width=25,
+        command=lambda: os.startfile(caminho_video)
+    ).pack(pady=10)
 
 def process_video():
     file_path = filedialog.askopenfilename(
@@ -300,12 +361,11 @@ def process_video():
 
     resumo = calcular_conformidade_video(results)
 
-    messagebox.showinfo(
-        "Processamento concluído",
-        f"Vídeo processado com sucesso.\n"
-        f"Resultado salvo em runs/detect/results/video_prediction.\n\n"
-        f"{resumo}"
-    )
+    save_dir = str(results[0].save_dir)
+    nome_base = os.path.splitext(os.path.basename(file_path))[0]
+    caminho_video = os.path.join(save_dir, nome_base + ".avi")
+
+    mostrar_resultado_video(resumo, caminho_video)
 
 
 def process_webcam():
