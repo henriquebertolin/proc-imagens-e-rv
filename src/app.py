@@ -1,5 +1,7 @@
 import os
 import cv2
+import time
+import numpy as np
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
@@ -369,29 +371,156 @@ def process_video():
 
 
 def process_webcam():
+    PANEL_W = 280
+    PANEL_BG = (30, 30, 30)
+    TEXT_COLOR = (220, 220, 220)
+    OK_COLOR = (80, 200, 120)
+    WARN_COLOR = (70, 70, 255)
+    TITLE_COLOR = (180, 180, 180)
+    FONT = cv2.FONT_HERSHEY_SIMPLEX
+
     cap = cv2.VideoCapture(0)
 
     if not cap.isOpened():
         messagebox.showerror("Erro", "Não foi possível acessar a webcam.")
         return
 
+    alert_state = False
+    alert_timer = 0.0
+    ALERT_BLINK_INTERVAL = 0.4
+
     while True:
         ret, frame = cap.read()
-
         if not ret:
             break
 
         results = model.predict(frame, conf=0.4, verbose=False)
-        annotated_frame = results[0].plot()
+        annotated = results[0].plot()
 
-        cv2.imshow("SafeVision - Webcam", annotated_frame)
+        contagem = {
+            "Person": 0,
+            "helmet": 0,
+            "vest": 0,
+            "goggles": 0,
+            "gloves": 0,
+            "boots": 0,
+            "no_helmet": 0,
+            "no_goggle": 0,
+            "no_gloves": 0,
+            "no_boots": 0,
+        }
+
+        for box in results[0].boxes:
+            class_id = int(box.cls[0])
+            class_name = results[0].names[class_id]
+            if class_name in contagem:
+                contagem[class_name] += 1
+
+        pessoas = contagem["Person"]
+        nao_conformidades = (
+            contagem["no_helmet"]
+            + contagem["no_goggle"]
+            + contagem["no_gloves"]
+            + contagem["no_boots"]
+        )
+        conformidade = (
+            max(0.0, 100.0 - (nao_conformidades / pessoas * 100.0))
+            if pessoas > 0
+            else 0.0
+        )
+
+        tem_alerta = nao_conformidades > 0
+
+        now = time.time()
+        if tem_alerta:
+            if now - alert_timer >= ALERT_BLINK_INTERVAL:
+                alert_state = not alert_state
+                alert_timer = now
+        else:
+            alert_state = False
+            alert_timer = now
+
+        h, w = annotated.shape[:2]
+        panel = np.full((h, PANEL_W, 3), PANEL_BG, dtype=np.uint8)
+
+        def txt(img, text, x, y, scale=0.45, color=TEXT_COLOR, thickness=1):
+            cv2.putText(img, text, (x, y), FONT, scale, color, thickness, cv2.LINE_AA)
+
+        def linha(img, y):
+            cv2.line(img, (10, y), (PANEL_W - 10, y), (70, 70, 70), 1)
+
+        y = 28
+        txt(panel, "SafeVision", 10, y, 0.55, (255, 255, 255), 1)
+        y += 16
+        txt(panel, "tempo real", 10, y, 0.38, TITLE_COLOR)
+
+        y += 20
+        linha(panel, y)
+        y += 16
+        txt(panel, "PESSOAS", 10, y, 0.38, TITLE_COLOR)
+        y += 16
+        txt(panel, str(pessoas), 10, y, 0.55, TEXT_COLOR, 1)
+
+        y += 20
+        linha(panel, y)
+        y += 16
+        txt(panel, "EPIs DETECTADOS", 10, y, 0.38, TITLE_COLOR)
+        for label, val in [
+            ("Capacetes", contagem["helmet"]),
+            ("Coletes", contagem["vest"]),
+            ("Oculos", contagem["goggles"]),
+            ("Luvas", contagem["gloves"]),
+            ("Botas", contagem["boots"]),
+        ]:
+            y += 15
+            txt(panel, f"{label}: {val}", 10, y, 0.40, OK_COLOR if val > 0 else TEXT_COLOR)
+
+        y += 20
+        linha(panel, y)
+        y += 16
+        txt(panel, "NAO CONFORMIDADES", 10, y, 0.38, TITLE_COLOR)
+        for label, val in [
+            ("Sem capacete", contagem["no_helmet"]),
+            ("Sem oculos", contagem["no_goggle"]),
+            ("Sem luvas", contagem["no_gloves"]),
+            ("Sem botas", contagem["no_boots"]),
+        ]:
+            y += 15
+            txt(panel, f"{label}: {val}", 10, y, 0.40, WARN_COLOR if val > 0 else TEXT_COLOR)
+
+        y += 20
+        linha(panel, y)
+        y += 16
+        txt(panel, "CONFORMIDADE", 10, y, 0.38, TITLE_COLOR)
+        y += 20
+        cor_conf = (
+            OK_COLOR if conformidade >= 80
+            else WARN_COLOR if conformidade < 50
+            else (50, 200, 200)
+        )
+        txt(panel, f"{conformidade:.1f}%", 10, y, 0.70, cor_conf, 2)
+
+        if tem_alerta and alert_state:
+            overlay = annotated.copy()
+            cv2.rectangle(overlay, (0, 0), (w, h), (0, 0, 200), -1)
+            cv2.addWeighted(overlay, 0.18, annotated, 0.82, 0, annotated)
+            banner_h = 36
+            cv2.rectangle(annotated, (0, h - banner_h), (w, h), (0, 0, 180), -1)
+            cv2.putText(
+                annotated,
+                "  ALERTA: Pessoa sem EPI detectada!",
+                (8, h - 10),
+                FONT, 0.60, (255, 255, 255), 1, cv2.LINE_AA
+            )
+
+        combined = np.hstack([annotated, panel])
+        cv2.imshow("SafeVision - Webcam (ESC para sair)", combined)
 
         if cv2.waitKey(1) == 27:
             break
 
     cap.release()
     cv2.destroyAllWindows()
-
 
 root = tk.Tk()
 root.title("SafeVision - Detector de EPIs")
