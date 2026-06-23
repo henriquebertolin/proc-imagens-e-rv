@@ -485,9 +485,9 @@ Prof. Dr. Rafael Rieder
 Universidade de Passo Fundo (UPF) - 2026/1
 
 **Equipe:**
-- **Henrique Bertolin** - Treinamento do modelo YOLOv8
-- **Gregory Fortunato** - Interface, webcam, painel, gravação e integração
-- **Guilherme Reginato** - Funcionalidades adicionais e otimização
+- **Henrique Bertolin** 
+- **Gregory Fortunato**
+- **Guilherme Reginato** 
 
 ---
 
