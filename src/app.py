@@ -51,6 +51,136 @@ FILTROS_IMAGEM = {
     "Equalização de histograma": aplicar_equalizacao,
 }
 
+def calcular_conformidade_video(results):
+    max_contagem = {
+        "Person": 0,
+        "helmet": 0,
+        "vest": 0,
+        "goggles": 0,
+        "gloves": 0,
+        "boots": 0,
+        "no_helmet": 0,
+        "no_goggle": 0,
+        "no_gloves": 0,
+        "no_boots": 0,
+    }
+
+    for result in results:
+        contagem_frame = {classe: 0 for classe in max_contagem}
+
+        for box in result.boxes:
+            class_id = int(box.cls[0])
+            class_name = result.names[class_id]
+
+            if class_name in contagem_frame:
+                contagem_frame[class_name] += 1
+
+        for classe in max_contagem:
+            max_contagem[classe] = max(max_contagem[classe], contagem_frame[classe])
+
+    pessoas = max_contagem["Person"]
+
+    nao_conformidades = (
+        max_contagem["no_helmet"]
+        + max_contagem["no_goggle"]
+        + max_contagem["no_gloves"]
+        + max_contagem["no_boots"]
+    )
+
+    epis_detectados = (
+        max_contagem["helmet"]
+        + max_contagem["vest"]
+        + max_contagem["goggles"]
+        + max_contagem["gloves"]
+        + max_contagem["boots"]
+    )
+
+    if pessoas > 0:
+        conformidade = max(0, 100 - ((nao_conformidades / pessoas) * 100))
+    else:
+        conformidade = 0
+
+    resumo = (
+        f"Resumo do vídeo por máximo em cena:\n\n"
+        f"Máximo de pessoas: {pessoas}\n"
+        f"Máximo de capacetes: {max_contagem['helmet']}\n"
+        f"Máximo de coletes: {max_contagem['vest']}\n"
+        f"Máximo de óculos: {max_contagem['goggles']}\n"
+        f"Máximo de luvas: {max_contagem['gloves']}\n"
+        f"Máximo de botas: {max_contagem['boots']}\n\n"
+        f"Máximo sem capacete: {max_contagem['no_helmet']}\n"
+        f"Máximo sem óculos: {max_contagem['no_goggle']}\n"
+        f"Máximo sem luvas: {max_contagem['no_gloves']}\n"
+        f"Máximo sem botas: {max_contagem['no_boots']}\n\n"
+        f"EPIs detectados em cena: {epis_detectados}\n"
+        f"Não conformidades em cena: {nao_conformidades}\n"
+        f"Conformidade estimada: {conformidade:.1f}%"
+    )
+
+    return resumo
+
+def calcular_conformidade(results):
+    contagem = {
+        "Person": 0,
+        "helmet": 0,
+        "vest": 0,
+        "goggles": 0,
+        "gloves": 0,
+        "boots": 0,
+        "no_helmet": 0,
+        "no_goggle": 0,
+        "no_gloves": 0,
+        "no_boots": 0,
+    }
+
+    for result in results:
+        for box in result.boxes:
+            class_id = int(box.cls[0])
+            class_name = result.names[class_id]
+
+            if class_name in contagem:
+                contagem[class_name] += 1
+
+    pessoas = contagem["Person"]
+
+    nao_conformidades = (
+        contagem["no_helmet"]
+        + contagem["no_goggle"]
+        + contagem["no_gloves"]
+        + contagem["no_boots"]
+    )
+
+    epis_detectados = (
+        contagem["helmet"]
+        + contagem["vest"]
+        + contagem["goggles"]
+        + contagem["gloves"]
+        + contagem["boots"]
+    )
+
+    if pessoas > 0:
+        conformidade = max(0, 100 - ((nao_conformidades / pessoas) * 100))
+    else:
+        conformidade = 0
+
+    resumo = (
+        f"Pessoas detectadas: {pessoas}\n"
+        f"Capacetes: {contagem['helmet']}\n"
+        f"Coletes: {contagem['vest']}\n"
+        f"Óculos: {contagem['goggles']}\n"
+        f"Luvas: {contagem['gloves']}\n"
+        f"Botas: {contagem['boots']}\n\n"
+        f"Sem capacete: {contagem['no_helmet']}\n"
+        f"Sem óculos: {contagem['no_goggle']}\n"
+        f"Sem luvas: {contagem['no_gloves']}\n"
+        f"Sem botas: {contagem['no_boots']}\n\n"
+        f"EPIs detectados: {epis_detectados}\n"
+        f"Não conformidades: {nao_conformidades}\n"
+        f"Conformidade estimada: {conformidade:.1f}%"
+    )
+
+    return resumo
+
 
 def cv2_para_tk(img, tamanho_max=300):
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -140,9 +270,13 @@ def process_image():
         exist_ok=True
     )
 
+    resumo = calcular_conformidade(results)
+
     messagebox.showinfo(
         "Processamento concluído",
-        "Imagem processada com sucesso.\nResultado salvo na pasta results/image_prediction."
+        f"Imagem processada com sucesso.\n"
+        f"Resultado salvo em runs/detect/results/image_prediction.\n\n"
+        f"{resumo}"
     )
 
 
@@ -164,9 +298,13 @@ def process_video():
         exist_ok=True
     )
 
+    resumo = calcular_conformidade_video(results)
+
     messagebox.showinfo(
         "Processamento concluído",
-        "Vídeo processado com sucesso.\nResultado salvo na pasta results/video_prediction."
+        f"Vídeo processado com sucesso.\n"
+        f"Resultado salvo em runs/detect/results/video_prediction.\n\n"
+        f"{resumo}"
     )
 
 
