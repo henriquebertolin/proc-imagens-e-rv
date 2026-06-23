@@ -705,7 +705,7 @@ title.pack(pady=15)
 
 subtitle = tk.Label(
     root,
-    text="Detector de EPIs em Ambientes Industriais",
+    text="Detector de EPIs em Ambientes de Construção Civil",
     font=("Arial", 11),
     fg="#666"
 )
