@@ -23,7 +23,6 @@ os.makedirs(REPORTS_DIR, exist_ok=True)
 
 model = YOLO(MODEL_PATH)
 
-# Variáveis globais
 ultimo_alerta = 0
 alerta_cooldown = 2
 gravando_webcam = False
@@ -32,27 +31,26 @@ estatisticas_webcam = None
 
 
 def emitir_alerta_sonoro():
-    """Emite um som de alerta SEM dependências externas"""
     global ultimo_alerta
-    
+
     agora = time.time()
     if agora - ultimo_alerta < alerta_cooldown:
         return
-    
+
     ultimo_alerta = agora
-    
+
     sistema = platform.system()
-    
+
     try:
         if sistema == "Windows":
             import winsound
             winsound.Beep(1000, 200)
             time.sleep(0.1)
             winsound.Beep(1000, 200)
-            
+
         elif sistema == "Darwin":
             os.system('afplay /System/Library/Sounds/Alarm.aiff')
-            
+
         elif sistema == "Linux":
             try:
                 os.system('echo -e "\a"')
@@ -99,6 +97,7 @@ FILTROS_IMAGEM = {
     "Equalização de histograma": aplicar_equalizacao,
 }
 
+
 def calcular_conformidade_video(results):
     max_contagem = {
         "Person": 0,
@@ -107,11 +106,6 @@ def calcular_conformidade_video(results):
         "goggles": 0,
         "gloves": 0,
         "boots": 0,
-        "no_helmet": 0,
-        "no_vest": 0,
-        "no_goggle": 0,
-        "no_gloves": 0,
-        "no_boots": 0,
     }
 
     for result in results:
@@ -127,51 +121,45 @@ def calcular_conformidade_video(results):
         for classe in max_contagem:
             max_contagem[classe] = max(max_contagem[classe], contagem_frame[classe])
 
-    pessoas = max_contagem["Person"]
-
-    epis_detectados = (
-        max_contagem["helmet"]
-        + max_contagem["vest"]
-        + max_contagem["goggles"]
-        + max_contagem["gloves"]
-        + max_contagem["boots"]
-    )
-
-    nao_conformidades = (
-        max_contagem["no_helmet"]
-        + max_contagem["no_vest"]
-        + max_contagem["no_goggle"]
-        + max_contagem["no_gloves"]
-        + max_contagem["no_boots"]
-    )
-
-    if pessoas > 0 and epis_detectados == 0:
-        nao_conformidades += pessoas
-
-    if pessoas > 0:
-        conformidade = max(0, 100 - ((nao_conformidades / pessoas) * 100))
-    else:
-        conformidade = 0
+    pessoas, itens, faltando, epis_detectados, nao_conformidades, conformidade = analisar_epis(max_contagem)
 
     resumo = (
         f"Resumo do vídeo por máximo em cena:\n\n"
         f"Máximo de pessoas: {pessoas}\n"
-        f"Máximo de capacetes: {max_contagem['helmet']}\n"
-        f"Máximo de coletes: {max_contagem['vest']}\n"
-        f"Máximo de óculos: {max_contagem['goggles']}\n"
-        f"Máximo de luvas: {max_contagem['gloves']}\n"
-        f"Máximo de botas: {max_contagem['boots']}\n\n"
-        f"Máximo sem capacete: {max_contagem['no_helmet']}\n"
-        f"Máximo sem colete: {max_contagem['no_vest']}\n"
-        f"Máximo sem óculos: {max_contagem['no_goggle']}\n"
-        f"Máximo sem luvas: {max_contagem['no_gloves']}\n"
-        f"Máximo sem botas: {max_contagem['no_boots']}\n\n"
+        f"Máximo de capacetes: {itens['Capacete']}\n"
+        f"Máximo de coletes: {itens['Colete']}\n"
+        f"Máximo de óculos: {itens['Óculos']}\n"
+        f"Máximo de luvas: {itens['Luvas']}\n"
+        f"Máximo de botas: {itens['Botas']}\n\n"
+        f"Máximo faltando capacete: {faltando['Capacete']}\n"
+        f"Máximo faltando colete: {faltando['Colete']}\n"
+        f"Máximo faltando óculos: {faltando['Óculos']}\n"
+        f"Máximo faltando luvas: {faltando['Luvas']}\n"
+        f"Máximo faltando botas: {faltando['Botas']}\n\n"
         f"EPIs detectados em cena: {epis_detectados}\n"
         f"Não conformidades em cena: {nao_conformidades}\n"
         f"Conformidade estimada: {conformidade:.1f}%"
     )
 
     return resumo
+
+
+def analisar_epis(contagem):
+    pessoas = contagem["Person"]
+    itens = {
+        "Capacete": contagem["helmet"],
+        "Colete": contagem["vest"],
+        "Óculos": contagem["goggles"],
+        "Luvas": contagem["gloves"],
+        "Botas": contagem["boots"],
+    }
+    faltando = {nome: max(0, pessoas - qtd) for nome, qtd in itens.items()}
+    nao_conformidades = sum(faltando.values())
+    epis_detectados = sum(itens.values())
+    total_possivel = pessoas * len(itens)
+    conformidade = max(0.0, 100.0 - (nao_conformidades / total_possivel * 100.0)) if total_possivel > 0 else 0.0
+    return pessoas, itens, faltando, epis_detectados, nao_conformidades, conformidade
+
 
 def calcular_conformidade(results):
     contagem = {
@@ -181,11 +169,6 @@ def calcular_conformidade(results):
         "goggles": 0,
         "gloves": 0,
         "boots": 0,
-        "no_helmet": 0,
-        "no_vest": 0,
-        "no_goggle": 0,
-        "no_gloves": 0,
-        "no_boots": 0,
     }
 
     for result in results:
@@ -196,44 +179,20 @@ def calcular_conformidade(results):
             if class_name in contagem:
                 contagem[class_name] += 1
 
-    pessoas = contagem["Person"]
-
-    epis_detectados = (
-        contagem["helmet"]
-        + contagem["vest"]
-        + contagem["goggles"]
-        + contagem["gloves"]
-        + contagem["boots"]
-    )
-
-    nao_conformidades = (
-        contagem["no_helmet"]
-        + contagem["no_vest"]
-        + contagem["no_goggle"]
-        + contagem["no_gloves"]
-        + contagem["no_boots"]
-    )
-
-    if pessoas > 0 and epis_detectados == 0:
-        nao_conformidades += pessoas
-
-    if pessoas > 0:
-        conformidade = max(0, 100 - ((nao_conformidades / pessoas) * 100))
-    else:
-        conformidade = 0
+    pessoas, itens, faltando, epis_detectados, nao_conformidades, conformidade = analisar_epis(contagem)
 
     resumo = (
         f"Pessoas detectadas: {pessoas}\n"
-        f"Capacetes: {contagem['helmet']}\n"
-        f"Coletes: {contagem['vest']}\n"
-        f"Óculos: {contagem['goggles']}\n"
-        f"Luvas: {contagem['gloves']}\n"
-        f"Botas: {contagem['boots']}\n\n"
-        f"Sem capacete: {contagem['no_helmet']}\n"
-        f"Sem colete: {contagem['no_vest']}\n"
-        f"Sem óculos: {contagem['no_goggle']}\n"
-        f"Sem luvas: {contagem['no_gloves']}\n"
-        f"Sem botas: {contagem['no_boots']}\n\n"
+        f"Capacetes: {itens['Capacete']}\n"
+        f"Coletes: {itens['Colete']}\n"
+        f"Óculos: {itens['Óculos']}\n"
+        f"Luvas: {itens['Luvas']}\n"
+        f"Botas: {itens['Botas']}\n\n"
+        f"Faltando capacete: {faltando['Capacete']}\n"
+        f"Faltando colete: {faltando['Colete']}\n"
+        f"Faltando óculos: {faltando['Óculos']}\n"
+        f"Faltando luvas: {faltando['Luvas']}\n"
+        f"Faltando botas: {faltando['Botas']}\n\n"
         f"EPIs detectados: {epis_detectados}\n"
         f"Não conformidades: {nao_conformidades}\n"
         f"Conformidade estimada: {conformidade:.1f}%"
@@ -290,7 +249,7 @@ def open_image_filters_window():
 
     foto_original = cv2_para_tk(original)
     label_original.configure(image=foto_original)
-    label_original.image = foto_original  
+    label_original.image = foto_original
 
     def aplicar():
         nome_escolhido = filtro_var.get()
@@ -337,6 +296,7 @@ def mostrar_resultado_imagem(img, resumo):
         justify="left"
     )
     label_resumo.pack(pady=10)
+
 
 def process_image():
     file_path = filedialog.askopenfilename(
@@ -400,6 +360,7 @@ def mostrar_resultado_video(resumo, caminho_video):
         command=lambda: os.startfile(caminho_video) if platform.system() == "Windows" else os.system(f'open "{caminho_video}"')
     ).pack(pady=10)
 
+
 def process_video():
     file_path = filedialog.askopenfilename(
         title="Selecione um vídeo",
@@ -428,33 +389,32 @@ def process_video():
 
 
 def exportar_relatorio():
-    """Exporta as estatísticas da webcam em um arquivo .txt"""
     global estatisticas_webcam
-    
+
     if estatisticas_webcam is None:
         messagebox.showwarning("Aviso", "Execute a webcam primeiro para gerar um relatório.")
         return
-    
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     nome_arquivo = f"relatorio_safevision_{timestamp}.txt"
     caminho = os.path.join(REPORTS_DIR, nome_arquivo)
-    
+
     with open(caminho, 'w', encoding='utf-8') as f:
         f.write("=" * 70 + "\n")
         f.write("RELATÓRIO DE CONFORMIDADE - SafeVision\n")
         f.write("=" * 70 + "\n\n")
-        
+
         f.write(f"Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n\n")
-        
+
         f.write(estatisticas_webcam)
-        
+
         f.write("\n\n" + "=" * 70 + "\n")
         f.write("Interpretação:\n")
         f.write("- Conformidade >= 80%: Excelente (OK)\n")
         f.write("- Conformidade 50-79%: Atenção (ATEN)\n")
         f.write("- Conformidade < 50%: Crítico (CRIT)\n")
         f.write("=" * 70 + "\n")
-    
+
     messagebox.showinfo(
         "Relatório exportado",
         f"Relatório salvo em:\n{caminho}"
@@ -462,14 +422,8 @@ def exportar_relatorio():
 
 
 def process_webcam(gravar=False):
-    """Abre webcam com ou sem gravação
-    
-    Args:
-        gravar (bool): Se True, grava vídeo. Se False, apenas monitora.
-    """
     global estatisticas_webcam, video_writer
-    
-    # DESIGN PROFISSIONAL DO PAINEL
+
     PANEL_W = 320
     PANEL_BG = (20, 20, 30)
     DIVIDER_COLOR = (50, 50, 70)
@@ -487,30 +441,31 @@ def process_webcam(gravar=False):
         messagebox.showerror("Erro", "Não foi possível acessar a webcam.")
         return
 
-    # Setup para gravação (se solicitado)
     video_writer = None
     video_path = None
-    
+
     if gravar:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         video_path = os.path.join(VIDEOS_DIR, f"webcam_recording_{timestamp}.mp4")
-        
+
         fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
         frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        
-        video_writer = cv2.VideoWriter(video_path, fourcc, fps, 
+
+        video_writer = cv2.VideoWriter(video_path, fourcc, fps,
                                         (frame_width + PANEL_W, frame_height))
 
     alert_state = False
     alert_timer = 0.0
     ALERT_BLINK_INTERVAL = 0.3
-    
-    # Para armazenar estatísticas finais
+
     historico_conformidade = []
     max_pessoas = 0
     total_frames = 0
+
+    titulo = "SafeVision - Webcam (ESC para sair)"
+    cv2.namedWindow(titulo, cv2.WINDOW_NORMAL)
 
     while True:
         ret, frame = cap.read()
@@ -527,11 +482,6 @@ def process_webcam(gravar=False):
             "goggles": 0,
             "gloves": 0,
             "boots": 0,
-            "no_helmet": 0,
-            "no_vest": 0,
-            "no_goggle": 0,
-            "no_gloves": 0,
-            "no_boots": 0,
         }
 
         for box in results[0].boxes:
@@ -540,34 +490,9 @@ def process_webcam(gravar=False):
             if class_name in contagem:
                 contagem[class_name] += 1
 
-        pessoas = contagem["Person"]
+        pessoas, itens, faltando, epis_detectados, nao_conformidades, conformidade = analisar_epis(contagem)
         max_pessoas = max(max_pessoas, pessoas)
-        
-        epis_detectados = (
-            contagem["helmet"]
-            + contagem["vest"]
-            + contagem["goggles"]
-            + contagem["gloves"]
-            + contagem["boots"]
-        )
 
-        nao_conformidades = (
-            contagem["no_helmet"]
-            + contagem["no_vest"]
-            + contagem["no_goggle"]
-            + contagem["no_gloves"]
-            + contagem["no_boots"]
-        )
-
-        if pessoas > 0 and epis_detectados == 0:
-            nao_conformidades += pessoas
-
-        conformidade = (
-            max(0.0, 100.0 - (nao_conformidades / pessoas * 100.0))
-            if pessoas > 0
-            else 0.0
-        )
-        
         historico_conformidade.append(conformidade)
         total_frames += 1
 
@@ -615,11 +540,11 @@ def process_webcam(gravar=False):
         y += 10
         y = caixa_titulo(panel, "EPIS OK", y, OK_COLOR)
         epis_items = [
-            ("Cap:", contagem["helmet"]),
-            ("Col:", contagem["vest"]),
-            ("Ocs:", contagem["goggles"]),
-            ("Luv:", contagem["gloves"]),
-            ("Bot:", contagem["boots"]),
+            ("Cap:", itens["Capacete"]),
+            ("Col:", itens["Colete"]),
+            ("Ocs:", itens["Óculos"]),
+            ("Luv:", itens["Luvas"]),
+            ("Bot:", itens["Botas"]),
         ]
         for label, val in epis_items:
             icon = "✓" if val > 0 else "○"
@@ -632,13 +557,13 @@ def process_webcam(gravar=False):
         y += 10
         cor_alerta = WARN_COLOR if tem_alerta else TITLE_COLOR
         y = caixa_titulo(panel, "NAO-CONF", y, cor_alerta)
-        
+
         non_conform_items = [
-            ("Cap:", contagem["no_helmet"]),
-            ("Col:", contagem["no_vest"]),
-            ("Ocs:", contagem["no_goggle"]),
-            ("Luv:", contagem["no_gloves"]),
-            ("Bot:", contagem["no_boots"]),
+            ("Cap:", faltando["Capacete"]),
+            ("Col:", faltando["Colete"]),
+            ("Ocs:", faltando["Óculos"]),
+            ("Luv:", faltando["Luvas"]),
+            ("Bot:", faltando["Botas"]),
         ]
         for label, val in non_conform_items:
             icon = "✗" if val > 0 else "○"
@@ -673,7 +598,6 @@ def process_webcam(gravar=False):
         progresso_px = int((conformidade / 100.0) * barra_w)
         cv2.rectangle(panel, (barra_x, y), (barra_x + progresso_px, y + barra_h), cor_conf, -1)
 
-        # Status de gravação
         y += 20
         if gravar:
             cor_grav = (0, 255, 0)
@@ -687,7 +611,7 @@ def process_webcam(gravar=False):
             overlay = annotated.copy()
             cv2.rectangle(overlay, (0, 0), (w, h), (0, 0, 255), -1)
             cv2.addWeighted(overlay, 0.15, annotated, 0.85, 0, annotated)
-            
+
             banner_h = 45
             cv2.rectangle(annotated, (0, h - banner_h), (w, h), (0, 0, 200), -1)
             cv2.putText(
@@ -698,35 +622,34 @@ def process_webcam(gravar=False):
             )
 
         combined = np.hstack([annotated, panel])
-        
-        # Grava o frame se solicitado
+
         if gravar and video_writer:
             video_writer.write(combined)
-        
-        titulo = "SafeVision - Webcam (ESC para sair)"
+
         cv2.imshow(titulo, combined)
 
-        if cv2.waitKey(1) == 27:  # ESC
+        key = cv2.waitKey(1) & 0xFF
+        if key == 27:
+            break
+        if cv2.getWindowProperty(titulo, cv2.WND_PROP_VISIBLE) < 1:
             break
 
-    # Finaliza gravação
     if video_writer:
         video_writer.release()
-    
+
     cap.release()
     cv2.destroyAllWindows()
-    
-    # Calcula estatísticas finais
+
     if historico_conformidade:
         conformidade_media = np.mean(historico_conformidade)
         conformidade_min = np.min(historico_conformidade)
         conformidade_max = np.max(historico_conformidade)
-        
+
         if gravar:
             msg_video = f"Vídeo gravado em: {video_path}\n\n"
         else:
             msg_video = ""
-        
+
         estatisticas_webcam = (
             f"Pessoas máximas detectadas: {max_pessoas}\n"
             f"Total de frames processados: {total_frames}\n\n"
@@ -735,7 +658,7 @@ def process_webcam(gravar=False):
             f"Conformidade máxima: {conformidade_max:.1f}%\n\n"
             f"{msg_video}"
         )
-        
+
         if gravar:
             messagebox.showinfo(
                 "Webcam fechada",
@@ -753,7 +676,6 @@ def process_webcam(gravar=False):
 
 
 def confirmacao_gravacao():
-    """Abre um pop-up perguntando se deseja gravar a webcam"""
     resposta = messagebox.askyesno(
         "Gravar Webcam?",
         "Deseja gravar a webcam em vídeo MP4?\n\n"
@@ -761,7 +683,7 @@ def confirmacao_gravacao():
         "Não → Abre webcam SEM gravação\n\n"
         "(Apenas monitorar)"
     )
-    
+
     if resposta:
         process_webcam(gravar=True)
     else:
