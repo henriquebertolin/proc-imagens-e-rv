@@ -7,7 +7,8 @@ from ultralytics import YOLO
 
 MODEL_PATH = "model/best.pt"
 RESULTS_DIR = "results"
-FILTERS_DIR = os.path.join(RESULTS_DIR, "filtros_imagem")
+FILTERS_DIR = os.path.join("runs", "detect", RESULTS_DIR, "filtros_imagem")
+
 
 os.makedirs(RESULTS_DIR, exist_ok=True)
 os.makedirs(FILTERS_DIR, exist_ok=True)
@@ -110,7 +111,13 @@ def open_image_filters_window():
         label_filtrada.image = foto_resultado
 
         caminho_saida = os.path.join(FILTERS_DIR, f"{nome_escolhido.replace(' ', '_')}.jpg")
-        cv2.imwrite(caminho_saida, resultado)
+
+        print("FILTERS_DIR =", FILTERS_DIR)
+        print("Salvando em:", caminho_saida)
+
+        salvou = cv2.imwrite(caminho_saida, resultado)
+
+        print("Salvou?", salvou)
 
     tk.Button(win, text="Aplicar filtro", width=20, command=aplicar).pack(pady=10)
 
